@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>成田空港行き列車位置情報</title>
+  <style>
+    body{
+      font-family: sans-serif;
+      margin: 10px;
+      padding: 0;
+      background:#f4f4f4;
+    }
+    h1{
+      font-size: 1.2em;
+      text-align:center;
+      margin: 8px 0 6px;
+    }
+
+    #info-message{
+      text-align:center;
+      font-size:0.9em;
+      color:#333;
+      margin: 4px 0 10px;
+      line-height: 1.35;
+    }
+
+    #alert-banner{
+      display:none;
+      margin: 8px 0 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #fff3cd;
+      border-left: 6px solid #dc3545;
+      color: #7a0000;
+      line-height: 1.4;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    #alert-banner .title{
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .card{
+      background:#fff;
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    #line-svg{
+      width:100%;
+      height: 1100px;
+      display:block;
+      background:#fff;
+    }
+
+    #last-updated{
+      font-size:0.85em;
+      color:#666;
+      text-align:center;
+      margin:10px 0 0;
+    }
+
+    .train-marker{ cursor:pointer; }
+
+    /* ====== モーダル ====== */
+    #modal-overlay{
+      display:none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 9999;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    #modal{
+      max-width: 520px;
+      margin: 10vh auto 0;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    #modal-header{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #f6f6f6;
+      border-bottom: 1px solid #e6e6e6;
+    }
+    #modal-title{
+      font-weight: bold;
+      font-size: 1.0em;
+      color:#222;
+    }
+    #modal-close{
+      appearance: none;
+      border: none;
+      background: transparent;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 6px 8px;
+      color:#333;
+    }
+    #modal-body{
+      padding: 12px 14px 14px;
+    }
+    #modal-body .row{
+      margin: 6px 0;
+      line-height: 1.35;
+    }
+    #modal-body .hint{
+      color:#666;
+      font-size:0.9em;
+      margin-top: 10px;
+    }
+    .sep{
+      margin: 14px 0;
+      border: none;
+      border-top: 1px solid #ddd;
+    }
+
+    @media (max-width: 600px){
+      body{ margin: 6px; }
+      #line-svg{ height: 1050px; }
+      #modal{ margin-top: 12vh; }
+    }
+
+    @keyframes triangleBlink {
+      0%   { opacity: 1; }
+      50%  { opacity: 0.25; }
+      100% { opacity: 1; }
+    }
+
+.train-marker.moving .train-triangle {
+  animation: triangleBlink 1s infinite;
+}
+
+  </style>
+</head>
+<body>
+  <h1>成田空港行き列車位置情報</h1>
+  <div style="text-align:center; font-size:0.95em; color:#555; margin-bottom:4px;">
+    【Train information to Narita Airport】
+  </div>
+
+  <div id="info-message"></div>
+  <div id="alert-banner"></div>
+
+  <div class="card">
+    <svg id="line-svg" viewBox="0 0 380 1100"></svg>
+  </div>
+
+  <div id="last-updated"></div>
+
+  <div id="modal-overlay" aria-hidden="true">
+    <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div id="modal-header">
+        <div id="modal-title">列車情報 / Train Details</div>
+        <button id="modal-close" aria-label="閉じる">×</button>
+      </div>
+      <div id="modal-body">
+        <div class="hint">
+          路線図の列車番号をタップすると、ここに詳細が表示されます。<br>
+          Tap a train number on the map to see details.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const trainUrl = "https://api-public.odpt.org/api/v4/odpt:Train?odpt:operator=odpt.Operator:Toei";
+
+    // テスト遅延：?testdelay=12
+    const params = new URLSearchParams(location.search);
+    const TEST_DELAY_MIN = Number(params.get("testdelay") || 0);
+
+    // ★遅延トリガー（京成区間表示 / バナー / モーダル注意文）
+    const DELAY_TRIGGER_MIN = 5;
+
+    // 日本語駅名
+    const stationMap = {
+      "KeiseiTakasago": "京成高砂(KS-10)",
+      "Aoto": "青砥(KS-09)",
+      "KeiseiTateishi": "京成立石(KS-49)",
+      "Yotsugi": "四ツ木(KS-48)",
+      "Yahiro": "八広(KS-47)",
+      "KeiseiHikifune": "京成曳舟(KS-46)",
+
+      "Oshiage": "押上(A-20)",
+      "HonjoAzumabashi": "本所吾妻橋(A-19)",
+      "Asakusa": "浅草(A-18)",
+      "Kuramae": "蔵前(A-17)",
+      "Asakusabashi": "浅草橋(A-16)",
+      "HigashiNihombashi": "東日本橋(A-15)",
+      "Ningyocho": "人形町(A-14)",
+      "Nihombashi": "日本橋(A-13)",
+      "Takaracho": "宝町(A-12)",
+      "HigashiGinza": "東銀座(A-11)",
+      "Shimbashi": "新橋(A-10)",
+      "Daimon": "大門(A-09)",
+      "Mita": "三田(A-08)",
+      "Sengakuji": "泉岳寺(A-07)",
+      "Takanawadai": "高輪台(A-06)",
+      "Gotanda": "五反田(A-05)",
+      "Togoshi": "戸越(A-04)",
+      "Nakanobu": "中延(A-03)",
+      "Magome": "馬込(A-02)",
+      "NishiMagome": "西馬込(A-01)",
+
+      "NaritaAirportTerminal1": "成田空港"
+    };
+
+    // 英語駅名
+    const stationMapEn = {
+      "KeiseiTakasago": "Keisei-Takasago",
+      "Aoto": "Aoto",
+      "KeiseiTateishi": "Keisei-Tateishi",
+      "Yotsugi": "Yotsugi",
+      "Yahiro": "Yahiro",
+      "KeiseiHikifune": "Keisei-Hikifune",
+
+      "Oshiage": "Oshiage (A-20)",
+      "HonjoAzumabashi": "Honjo-Azumabashi (A-19)",
+      "Asakusa": "Asakusa (A-18)",
+      "Kuramae": "Kuramae (A-17)",
+      "Asakusabashi": "Asakusabashi (A-16)",
+      "HigashiNihombashi": "Higashi-Nihombashi (A-15)",
+      "Ningyocho": "Ningyocho (A-14)",
+      "Nihombashi": "Nihombashi (A-13)",
+      "Takaracho": "Takaracho (A-12)",
+      "HigashiGinza": "Higashi-Ginza (A-11)",
+      "Shimbashi": "Shimbashi (A-10)",
+      "Daimon": "Daimon (A-09)",
+      "Mita": "Mita (A-08)",
+      "Sengakuji": "Sengakuji (A-07)",
+      "Takanawadai": "Takanawadai (A-06)",
+      "Gotanda": "Gotanda (A-05)",
+      "Togoshi": "Togoshi (A-04)",
+      "Nakanobu": "Nakanobu (A-03)",
+      "Magome": "Magome (A-02)",
+      "NishiMagome": "Nishi-Magome (A-01)",
+
+      "NaritaAirportTerminal1": "Narita Airport (KS-42)"
+    };
+
+    // 上=京成高砂 → … → 押上 → 下=西馬込
+    const stationOrderKey = [
+      "KeiseiTakasago","Aoto","KeiseiTateishi","Yotsugi","Yahiro","KeiseiHikifune","Oshiage",
+      "HonjoAzumabashi","Asakusa","Kuramae","Asakusabashi","HigashiNihombashi","Ningyocho","Nihombashi",
+      "Takaracho","HigashiGinza","Shimbashi","Daimon","Mita","Sengakuji","Takanawadai","Gotanda","Togoshi",
+      "Nakanobu","Magome","NishiMagome"
+    ];
+
+    // 右レーンで表示しない通過駅（浅草線内の通過駅）
+    const bypassStationKeys = new Set([
+      "HigashiGinza","Takaracho","Ningyocho","Asakusabashi","Kuramae","HonjoAzumabashi"
+    ]);
+
+    // 京成区間（押上の上だけ）※押上は含めない
+    const keiseiSectionKeys = new Set([
+      "KeiseiTakasago","Aoto","KeiseiTateishi","Yotsugi","Yahiro","KeiseiHikifune"
+    ]);
+
+    // ★京成区間で「普通以外は通過」扱いにしたい駅（停車○を消す：左右両レーン）
+    const keiseiPassCircleKeys = new Set([
+      "KeiseiHikifune",
+      "Yahiro",
+      "Yotsugi",
+      "KeiseiTateishi"
+    ]);
+
+    let selectedTrainId = null;
+    let latestTrainsById = new Map();
+    let visibleStations = [];
+    let lastRenderedTrains = [];
+
+    function stationKeyFromUri(uri){
+      if(!uri) return null;
+      return uri.split(".").pop();
+    }
+
+    function translateStation(stationUri){
+      if(!stationUri) return "不明";
+      const key = stationKeyFromUri(stationUri);
+      return stationMap[key] || key;
+    }
+
+    function translateStationEn(stationUri){
+      if(!stationUri) return "Unknown";
+      const key = stationKeyFromUri(stationUri);
+      return stationMapEn[key] || key;
+    }
+
+    // ===URL末尾に　?testdelay=5　この場合５分遅れ
+    function getDelayMin(train){
+      const delay = train["odpt:delay"];
+      const real = (delay && delay > 0) ? Math.round(delay/60) : 0;
+      if(TEST_DELAY_MIN > 0) return Math.max(real, TEST_DELAY_MIN);
+      return real;
+    }
+
+    function formatTrainNumber(raw){
+      const s = raw || "";
+      const m = s.match(/^(\d+)([A-Za-z]+)/);
+      if(!m) return s || "??";
+      const num = m[1];
+      const letter = m[2].charAt(0).toUpperCase();
+      const last2 = num.length >= 2 ? num.slice(-2) : num;
+      return last2 + letter;
+    }
+
+    // ===== 種別：JA/EN（マーカー色）=====
+    function getTrainTypeParts(train){
+      const trainType = train["odpt:trainType"];
+      const map = {
+        "odpt.TrainType:Toei.Local": { ja:"普通", en:"Local", bg:"#000000", fg:"#ffffff" },
+        "odpt.TrainType:Toei.Rapid": { ja:"快速", en:"Rapid", bg:"#e83e8c", fg:"#ffffff" },
+        "odpt.TrainType:Toei.Express": { ja:"急行", en:"Express", bg:"#007bff", fg:"#ffffff" },
+        "odpt.TrainType:Toei.LimitedExpress": { ja:"特急", en:"Limited Express", bg:"#dc3545", fg:"#ffffff" },
+        "odpt.TrainType:Toei.RapidLimitedExpress": { ja:"快速特急", en:"Limited Express", bg:"#28a745", fg:"#ffffff" },
+        "odpt.TrainType:Toei.CommuterLimitedExpress": { ja:"通勤特急", en:"Commuter Limited Express", bg:"#17a2b8", fg:"#ffffff" },
+        "odpt.TrainType:Toei.AccessExpress": { ja:"アクセス特急", en:"Access Express", bg:"#fd7e14", fg:"#ffffff" },
+        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈エアポート快特", en:"✈Limited Express", bg:"#fd7e14", fg:"#ffffff" }
+      };
+      return map[trainType] || { ja:"取得できませんでした", en:"Unavailable", bg:"#6c757d", fg:"#ffffff" };
+    }
+
+    // 行先
+    function getDestinationJa(train){
+      const destArr = train["odpt:destinationStation"] || [];
+      return destArr.length ? destArr.map(translateStation).join(" → ") : "不明";
+    }
+    function getDestinationEn(train){
+      const destArr = train["odpt:destinationStation"] || [];
+      return destArr.length ? destArr.map(translateStationEn).join(" → ") : "Unknown";
+    }
+
+    // 経由（日本語/英語 + 色付きHTML）
+    function getRouteInfoJaHtml(train){
+      const destination = train["odpt:destinationStation"];
+      if(!destination) return "不明";
+      if(destination.some(st => st.includes("odpt.Station:Keisei.NaritaSkyAccess")))
+        return `<span style="color:#fd7e14;font-weight:bold;">成田スカイアクセス線</span>`;
+      if(destination.some(st => st.includes("odpt.Station:Keisei.Main")))
+        return `<span style="color:#dc3545;font-weight:bold;">京成本線</span>`;
+      return "不明";
+    }
+
+    function getRouteInfoEnHtml(train){
+      const destination = train["odpt:destinationStation"];
+      if(!destination) return "Unknown";
+      if(destination.some(st => st.includes("odpt.Station:Keisei.NaritaSkyAccess")))
+        return `<span style="color:#fd7e14;font-weight:bold;">Narita Sky Access Line.</span>`;
+      if(destination.some(st => st.includes("odpt.Station:Keisei.Main")))
+        return `<span style="color:#dc3545;font-weight:bold;">Keisei Main Line.</span>`;
+      return "Unknown";
+    }
+
+    function isSkipTrain(train){
+      return train["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress";
+    }
+
+    // 日本語：通過/到着/出発
+    function getStatusText(train){
+      const fromKey = stationKeyFromUri(train["odpt:fromStation"]);
+      const from = translateStation(train["odpt:fromStation"]);
+      const isStopped = !train["odpt:toStation"];
+
+      if(isSkipTrain(train) && fromKey && bypassStationKeys.has(fromKey)){
+        return `${from}を通過しました。`;
+      }
+      if(isStopped) return `${from}に到着しました。`;
+      return `${from}を出発しました。`;
+    }
+
+    // 英語：Passed / Arrived / Departed
+    function getTrainStatusEn(train) {
+      const fromKey = stationKeyFromUri(train["odpt:fromStation"]);
+      const isStopped = !train["odpt:toStation"];
+      const fromEn = (fromKey && stationMapEn[fromKey]) ? stationMapEn[fromKey] : (fromKey || "Unknown");
+
+      if (
+        train["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress" &&
+        fromKey &&
+        bypassStationKeys.has(fromKey)
+      ) return `Passed ${fromEn}.`;
+
+      if (isStopped) return `Arrived at ${fromEn}.`;
+      return `Departed ${fromEn}.`;
+    }
+
+    function yOfStation(key){
+      const idx = visibleStations.indexOf(key);
+      if(idx < 0) return null;
+
+      const top = 50;
+      const bottom = 1050;
+
+      if(visibleStations.length === 1) return (top + bottom) / 2;
+      return top + (idx/(visibleStations.length-1))*(bottom-top);
+    }
+
+    function calcTrainY(train){
+      const fromKey = stationKeyFromUri(train["odpt:fromStation"]);
+      const toKey = stationKeyFromUri(train["odpt:toStation"]);
+      const yFrom = fromKey ? yOfStation(fromKey) : null;
+      if(!toKey) return yFrom;
+      const yTo = yOfStation(toKey);
+      if(yFrom == null || yTo == null) return yFrom ?? yTo;
+      return (yFrom + yTo)/2;
+    }
+
+    // ===== 詳細（モーダル）：二段（上段 日本語 / 下段 English）=====
+    function showDetail(train){
+      const num = formatTrainNumber(train["odpt:trainNumber"]);
+      const tp = getTrainTypeParts(train);
+
+      const delayMin = getDelayMin(train);
+      const isSevereDelay = delayMin >= DELAY_TRIGGER_MIN;
+
+      const statusJa = getStatusText(train);
+      const statusEn = getTrainStatusEn(train);
+
+      const destJa = getDestinationJa(train);
+      const destEn = getDestinationEn(train);
+
+      const routeJaHtml = getRouteInfoJaHtml(train);
+      const routeEnHtml = getRouteInfoEnHtml(train);
+
+      // ★「○分遅れ」だけ赤（1分以上で表示）
+      const delayPrefixJa = (delayMin > 0)
+        ? `<span style="color:#dc3545;font-weight:bold;">${delayMin}分遅れ</span>で`
+        : `定刻通り`;
+
+      const delayPrefixEn = (delayMin > 0)
+        ? `<span style="color:#dc3545;font-weight:bold;">${delayMin} min delay.</span>`
+        : `On time.`;
+
+      const isAirportKaitoku =
+        train["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress";
+
+      const stopNoteJa = !isAirportKaitoku ? " 押上(A-20)まで各駅に停まります。" : "";
+      const stopNoteEn = !isAirportKaitoku ? " Stops at all stations until Oshiage (A-20)." : "";
+
+      // ★5分以上の注意文（モーダルにのみ）
+      const noticeJa = "この先の状況により途中の駅で運転を打ち切る場合があります。";
+      const noticeEn = "Depending on the situation, trains may terminate at a station before the final destination.";
+
+      openModal(`
+        <!-- 🇯🇵 日本語 -->
+        <div style="font-size:1.02em; line-height:1.55;">
+          <div class="row"><b>列車番号：</b>${num}</div>
+
+          <div class="row">
+            <b>種別：</b>
+            <span style="display:inline-block;padding:3px 8px;border-radius:10px;background:${tp.bg};color:${tp.fg};">
+              ${tp.ja}
+            </span>${stopNoteJa}
+          </div>
+
+          <div class="row"><b>行先：</b>${routeJaHtml}経由 ${destJa}行き</div>
+
+          <div class="row"><b>運行状況：</b>${delayPrefixJa}${statusJa}</div>
+          ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeJa}</div>` : ``}
+        </div>
+
+        <div class="hint">※30秒ごとに自動更新</div>
+
+        <hr class="sep">
+
+        <!-- 🇬🇧 English -->
+        <div style="font-size:0.90em; color:#666; line-height:1.45;">
+          <div class="row"><b>Train No.:</b> ${num}</div>
+
+          <div class="row">
+            <b>Type:</b>
+            <span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${tp.bg};color:${tp.fg};">
+              ${tp.en}
+            </span><span style="color:#777; margin-left:8px;">${stopNoteEn}</span>
+          </div>
+
+          <div class="row"><b>Destination:</b> ${destEn} via ${routeEnHtml} </div>
+
+          <div class="row"><b>Status:</b> ${delayPrefixEn} ${statusEn}</div>
+          ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeEn}</div>` : ``}
+        </div>
+
+        <div class="hint">※Updates every 30 seconds</div>
+      `);
+    }
+
+    /* ====== モーダル制御 ====== */
+    const overlay = document.getElementById("modal-overlay");
+    const modalBody = document.getElementById("modal-body");
+    const btnClose = document.getElementById("modal-close");
+
+    function openModal(html){
+      modalBody.innerHTML = html;
+      overlay.style.display = "block";
+      overlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeModal(){
+      overlay.style.display = "none";
+      overlay.setAttribute("aria-hidden", "true");
+      selectedTrainId = null;
+      renderMap(lastRenderedTrains);
+    }
+
+    btnClose.onclick = closeModal;
+    overlay.onclick = (e) => { if(e.target === overlay) closeModal(); };
+    window.addEventListener("keydown", (e) => { if(e.key === "Escape") closeModal(); });
+
+    // ★トリガー 5分（バナー用）
+    function updateAlertBanner(trains){
+      const banner = document.getElementById("alert-banner");
+      if(!banner) return;
+
+      const severe = trains.filter(t => getDelayMin(t) >= DELAY_TRIGGER_MIN);
+      if(severe.length === 0){
+        banner.style.display = "none";
+        banner.innerHTML = "";
+        return;
+      }
+
+      banner.style.display = "block";
+      banner.innerHTML = `
+        <div class="title">【運行情報】</div>
+        <div>遅れが発生しています。</div>
+        <div>成田空港行きの電車は、押上駅から６駅先の京成高砂駅でお待ちください。</div>
+        <div style="margin-top:6px;"><b>【Service Information】</b></div>
+        <div>Service delays are occurring. Please wait for Narita Airport–bound trains at Keisei-Takasago (KS-10), six stations from Oshiage.</div>
+      `;
+    }
+
+function drawTrainMarker(svg, x, y, color, label, trainId, delaySide){
+  const train = latestTrainsById.get(trainId);
+  const delayMin = train ? getDelayMin(train) : 0;
+  const isDelayed = delayMin > 0;
+
+  // ★ 既存ロジックそのまま流用
+  const isStopped = train ? !train["odpt:toStation"] : false;
+
+  /* ===== 長方形 ===== */
+  const rectH = 34;
+  const rectW = 16;
+  const radius = 4;
+
+  const halfH = rectH / 2;
+  const halfW = rectW / 2;
+
+  /* ===== 三角（黒・上向き） ===== */
+  const triW = 10;
+  const triH = 6;
+  const triGap = 4;
+
+  const triY = y - halfH - triGap;
+
+  const triPoints = `
+    ${x},${triY - triH}
+    ${x - triW / 2},${triY}
+    ${x + triW / 2},${triY}
+  `;
+
+  /* ===== 遅延表示 ===== */
+  const gap = 8;
+  const delayY = y + 6;
+  const delayX = (delaySide === "left")
+    ? (x - halfW - gap)
+    : (x + halfW + gap);
+  const delayAnchor = (delaySide === "left") ? "end" : "start";
+
+  svg.insertAdjacentHTML(
+    "beforeend",
+    `<g class="train-marker ${isStopped ? "" : "moving"}"
+        data-train-id="${trainId}">
+
+      <!-- ▲ 白縁 -->
+      <polygon
+        class="train-triangle"
+        points="${triPoints}"
+        fill="#ffffff"
+      ></polygon>
+
+      <!-- ▲ 本体（黒） -->
+      <polygon
+        class="train-triangle"
+        points="${triPoints}"
+        transform="translate(0,1)"
+        fill="#000000"
+      ></polygon>
+
+      <!-- ■ 白縁 -->
+      <rect
+        x="${x - halfW}"
+        y="${y - halfH}"
+        width="${rectW}"
+        height="${rectH}"
+        rx="${radius}"
+        ry="${radius}"
+        fill="#ffffff"
+      ></rect>
+
+      <!-- ■ 本体（種別色） -->
+      <rect
+        x="${x - halfW}"
+        y="${y - halfH}"
+        width="${rectW}"
+        height="${rectH}"
+        rx="${radius}"
+        ry="${radius}"
+        fill="${color}"
+      ></rect>
+
+      ${isDelayed ? `
+        <text
+          x="${delayX}"
+          y="${delayY}"
+          font-size="12"
+          text-anchor="${delayAnchor}"
+          fill="#ff0000"
+          font-weight="bold">+${delayMin}</text>
+      ` : ``}
+    </g>`
+  );
+}
+
+
+
+
+
+
+    function renderMap(trains){
+      const svg = document.getElementById("line-svg");
+      if(!svg) return;
+
+      lastRenderedTrains = trains;
+      svg.innerHTML = "";
+
+      // ★遅れトリガー 5分（京成区間表示）
+      const severeDelay = trains.some(t => getDelayMin(t) >= DELAY_TRIGGER_MIN);
+
+      visibleStations = stationOrderKey.filter(key => {
+        if(!severeDelay && keiseiSectionKeys.has(key)) return false;
+        return true;
+      });
+
+      const xStopLine = 130;
+      const xSkipLine = 270;
+      const xStation  = 200;
+
+      const xStopTrain = xStopLine - 45;
+      const xSkipTrain = xSkipLine + 45;
+
+      const startY = yOfStation(visibleStations[0]);
+      const endY = yOfStation(visibleStations[visibleStations.length - 1]);
+
+      // ===== 上方向に「続き」を見せる延長（実線）=====
+      const yNext = (visibleStations.length >= 2) ? yOfStation(visibleStations[1]) : null;
+      const stationGap = (yNext != null) ? Math.abs(yNext - startY) : 40;
+      const extLen = stationGap * 0.9;
+      const extTopY = startY - extLen;
+
+      // ===== 縦線：左（黒1本）/ 右（橙枠＋白）=====
+      // 左レーン：黒1本（右レーン白=6に合わせる）
+      svg.insertAdjacentHTML("beforeend",
+        `<line x1="${xStopLine}" y1="${extTopY}" x2="${xStopLine}" y2="${endY}"
+               stroke="#000" stroke-width="6" stroke-linecap="round"></line>`
+      );
+
+      // 右レーン：橙1本線（シンプル版）
+      svg.insertAdjacentHTML("beforeend",
+         `<line x1="${xSkipLine}" y1="${extTopY}" x2="${xSkipLine}" y2="${endY}"
+                stroke="#ff8c00"
+                stroke-width="6"
+                stroke-linecap="round"></line>`
+       );
+
+      // 駅表示
+      visibleStations.forEach(key => {
+        const y = yOfStation(key);
+const nameJa = stationMap[key] || key;
+
+const nameEnRaw = stationMapEn[key] || "";
+const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
+
+
+        // ★遅れ表示中だけ：指定駅の停車○（左右）を消す
+        const hideCircle = severeDelay && keiseiPassCircleKeys.has(key);
+
+        // 左レーン：停車○（1個）
+        if(!hideCircle){
+          svg.insertAdjacentHTML("beforeend",
+            `<circle cx="${xStopLine}" cy="${y}" r="6"
+                     fill="#fff" stroke="#000" stroke-width="2"></circle>`
+          );
+        }
+
+        // 右レーン○（浅草線内の通過駅は元々非表示）
+        if(!bypassStationKeys.has(key) && !hideCircle){
+          svg.insertAdjacentHTML("beforeend",
+            `<circle cx="${xSkipLine}" cy="${y}" r="6"
+                     fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
+          );
+        }
+
+        // 駅名
+        svg.insertAdjacentHTML("beforeend",
+          `<text x="${xStation}" y="${y - 2}"
+                 font-size="14"
+                 font-weight="bold"
+                 text-anchor="middle"
+                 fill="#222">${nameJa}</text>
+           <text x="${xStation}" y="${y + 14}"
+                 font-size="11"
+                 text-anchor="middle"
+                 fill="#777">${nameEn}</text>`
+        );
+      });
+
+      // 列車マーカー
+      trains.forEach(train => {
+        const y = calcTrainY(train);
+        if(y == null) return;
+
+        const id = train["odpt:trainNumber"] || train["@id"] || ("t_" + Math.random());
+        latestTrainsById.set(id, train);
+
+        const label = formatTrainNumber(train["odpt:trainNumber"] || "");
+        const tp = getTrainTypeParts(train);
+
+        if(isSkipTrain(train)){
+          drawTrainMarker(svg, xSkipTrain, y, tp.bg, label, id, "right");
+        }else{
+          drawTrainMarker(svg, xStopTrain, y, tp.bg, label, id, "left");
+        }
+      });
+
+      // タップ → モーダル
+      svg.onclick = (ev) => {
+        const g = ev.target.closest(".train-marker");
+        if(!g) return;
+
+        const id = g.getAttribute("data-train-id");
+        const train = latestTrainsById.get(id);
+        if(!train) return;
+
+        selectedTrainId = id;
+        showDetail(train);
+
+        renderMap(Array.from(latestTrainsById.values()));
+      };
+    }
+
+    function loadTrainData(){
+      fetch(trainUrl)
+        .then(res => res.json())
+        .then(trainData => {
+          // 成田空港行きのみ抽出
+          const naritaAirportTrains = trainData.filter(train =>
+            train["odpt:destinationStation"] &&
+            train["odpt:destinationStation"].some(dest => dest.includes("NaritaAirport"))
+          );
+
+          const info = document.getElementById("info-message");
+          if(info){
+            if (naritaAirportTrains.length === 0) {
+              info.innerHTML =
+                "浅草線内を運行中の成田空港行き列車はありません。<br>" +
+                "【No trains to Narita Airport are currently operating on the Asakusa Line.】";
+            } else {
+              info.innerHTML =
+                "浅草線内を運行中の成田空港行き列車のみを表示しています。<br>路線図内の■をタップすると、列車情報が表示されます。<br>" +
+                "【This map shows only Narita Airport–bound trains currently operating on the Asakusa Line.<br>Tap the ■ on the route map to view train information.】";
+            }
+          }
+
+          updateAlertBanner(naritaAirportTrains);
+
+          const prevSelected = selectedTrainId;
+
+          latestTrainsById = new Map();
+          renderMap(naritaAirportTrains);
+
+          if(prevSelected && latestTrainsById.has(prevSelected)){
+            selectedTrainId = prevSelected;
+            if(overlay.style.display === "block"){
+              showDetail(latestTrainsById.get(prevSelected));
+            }
+          }else{
+            selectedTrainId = null;
+          }
+
+          const now = new Date();
+          const hh = now.getHours().toString().padStart(2,"0");
+          const mm = now.getMinutes().toString().padStart(2,"0");
+          const ss = now.getSeconds().toString().padStart(2,"0");
+          document.getElementById("last-updated").innerHTML =
+            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>30秒ごとに自動更新されます。【Automatically updates every 30 seconds.】`;
+        })
+        .catch(() => {
+          document.getElementById("last-updated").innerHTML =
+            "情報の取得に失敗しました。";
+        });
+    }
+
+    loadTrainData();
+    setInterval(loadTrainData, 30000);
+  </script>
+</body>
+</html>
