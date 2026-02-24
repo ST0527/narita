@@ -128,16 +128,6 @@
       #modal{ margin-top: 12vh; }
     }
 
-    @keyframes triangleBlink {
-      0%   { opacity: 1; }
-      50%  { opacity: 0.25; }
-      100% { opacity: 1; }
-    }
-
-.train-marker.moving .train-triangle {
-  animation: triangleBlink 1s infinite;
-}
-
   </style>
 </head>
 <body>
@@ -317,13 +307,13 @@
       const trainType = train["odpt:trainType"];
       const map = {
         "odpt.TrainType:Toei.Local": { ja:"普通", en:"Local", bg:"#000000", fg:"#ffffff" },
-        "odpt.TrainType:Toei.Rapid": { ja:"快速", en:"Rapid", bg:"#e83e8c", fg:"#ffffff" },
+        "odpt.TrainType:Toei.Rapid": { ja:"快速", en:"Rapid", bg:"#ff66a3", fg:"#ffffff" },
         "odpt.TrainType:Toei.Express": { ja:"急行", en:"Express", bg:"#007bff", fg:"#ffffff" },
         "odpt.TrainType:Toei.LimitedExpress": { ja:"特急", en:"Limited Express", bg:"#dc3545", fg:"#ffffff" },
         "odpt.TrainType:Toei.RapidLimitedExpress": { ja:"快速特急", en:"Limited Express", bg:"#28a745", fg:"#ffffff" },
         "odpt.TrainType:Toei.CommuterLimitedExpress": { ja:"通勤特急", en:"Commuter Limited Express", bg:"#17a2b8", fg:"#ffffff" },
         "odpt.TrainType:Toei.AccessExpress": { ja:"アクセス特急", en:"Access Express", bg:"#fd7e14", fg:"#ffffff" },
-        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈エアポート快特", en:"✈Limited Express", bg:"#fd7e14", fg:"#ffffff" }
+        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈エアポート快特", en:"✈ Airport Limited Express", bg:"#fd7e14", fg:"#ffffff" }
       };
       return map[trainType] || { ja:"取得できませんでした", en:"Unavailable", bg:"#6c757d", fg:"#ffffff" };
     }
@@ -452,9 +442,7 @@
       openModal(`
         <!-- 🇯🇵 日本語 -->
         <div style="font-size:1.02em; line-height:1.55;">
-          <div class="row"><b>列車番号：</b>${num}</div>
-
-          <div class="row">
+            <div class="row">
             <b>種別：</b>
             <span style="display:inline-block;padding:3px 8px;border-radius:10px;background:${tp.bg};color:${tp.fg};">
               ${tp.ja}
@@ -467,15 +455,13 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeJa}</div>` : ``}
         </div>
 
-        <div class="hint">※30秒ごとに自動更新</div>
+        <div class="hint">※20秒ごとに自動更新</div>
 
         <hr class="sep">
 
         <!-- 🇬🇧 English -->
         <div style="font-size:0.90em; color:#666; line-height:1.45;">
-          <div class="row"><b>Train No.:</b> ${num}</div>
-
-          <div class="row">
+           <div class="row">
             <b>Type:</b>
             <span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${tp.bg};color:${tp.fg};">
               ${tp.en}
@@ -488,7 +474,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeEn}</div>` : ``}
         </div>
 
-        <div class="hint">※Updates every 30 seconds</div>
+        <div class="hint">※Updates every 20 seconds</div>
       `);
     }
 
@@ -648,6 +634,11 @@ function drawTrainMarker(svg, x, y, color, label, trainId, delaySide){
         return true;
       });
 
+      // ★エアポート快特が存在するか
+      const hasAirportKaisoku = trains.some(
+        t => t["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress"
+      );
+
       const xStopLine = 130;
       const xSkipLine = 270;
       const xStation  = 200;
@@ -672,12 +663,18 @@ function drawTrainMarker(svg, x, y, color, label, trainId, delaySide){
       );
 
       // 右レーン：橙1本線（シンプル版）
-      svg.insertAdjacentHTML("beforeend",
-         `<line x1="${xSkipLine}" y1="${extTopY}" x2="${xSkipLine}" y2="${endY}"
-                stroke="#ff8c00"
-                stroke-width="6"
-                stroke-linecap="round"></line>`
-       );
+      const ySengakuji = yOfStation("Sengakuji");
+
+if (hasAirportKaisoku) {
+  svg.insertAdjacentHTML("beforeend",
+   `<line id="airport-line"
+          x1="${xSkipLine}" y1="${extTopY}"
+          x2="${xSkipLine}" y2="${ySengakuji}"
+          stroke="#ff8c00"
+          stroke-width="6"
+          stroke-linecap="round"></line>`
+  );
+}
 
       // 駅表示
       visibleStations.forEach(key => {
@@ -700,12 +697,18 @@ const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
         }
 
         // 右レーン○（浅草線内の通過駅は元々非表示）
-        if(!bypassStationKeys.has(key) && !hideCircle){
-          svg.insertAdjacentHTML("beforeend",
-            `<circle cx="${xSkipLine}" cy="${y}" r="6"
-                     fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
-          );
-        }
+        // 右レーン○（泉岳寺より下は描かない）
+if(
+  hasAirportKaisoku &&           // ★追加
+  !bypassStationKeys.has(key) &&
+  !hideCircle &&
+  y <= yOfStation("Sengakuji")
+){
+  svg.insertAdjacentHTML("beforeend",
+    `<circle cx="${xSkipLine}" cy="${y}" r="6"
+             fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
+  );
+}
 
         // 駅名
         svg.insertAdjacentHTML("beforeend",
@@ -753,6 +756,8 @@ const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
 
         renderMap(Array.from(latestTrainsById.values()));
       };
+
+      
     }
 
     function loadTrainData(){
@@ -769,12 +774,12 @@ const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
           if(info){
             if (naritaAirportTrains.length === 0) {
               info.innerHTML =
-                "浅草線内を運行中の成田空港行き列車はありません。<br>" +
-                "【No trains to Narita Airport are currently operating on the Asakusa Line.】";
+                "現在、成田空港行きの列車はありません。<br>" +
+                "【There are currently no trains bound for Narita Airport.】";
             } else {
               info.innerHTML =
-                "浅草線内を運行中の成田空港行き列車のみを表示しています。<br>路線図内の■をタップすると、列車情報が表示されます。<br>" +
-                "【This map shows only Narita Airport–bound trains currently operating on the Asakusa Line.<br>Tap the ■ on the route map to view train information.】";
+                "表示中の列車はすべて成田空港行きです。<br>" +
+                "【All trains shown are bound for Narita Airport.】";
             }
           }
 
@@ -799,16 +804,30 @@ const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
           const mm = now.getMinutes().toString().padStart(2,"0");
           const ss = now.getSeconds().toString().padStart(2,"0");
           document.getElementById("last-updated").innerHTML =
-            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>30秒ごとに自動更新されます。【Automatically updates every 30 seconds.】`;
+            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>20秒ごとに自動更新されます。【Automatically updates every 20 seconds.】`;
         })
         .catch(() => {
-          document.getElementById("last-updated").innerHTML =
-            "情報の取得に失敗しました。";
-        });
+  // 上部メッセージ
+  document.getElementById("info-message").innerHTML =
+    "列車情報を取得できませんでした。<br>" +
+    "【Train information is temporarily unavailable.】";
+
+  // 運行情報バナーは非表示
+  document.getElementById("alert-banner").style.display = "none";
+  document.getElementById("alert-banner").innerHTML = "";
+
+  // 路線図をクリア（重要）
+  const svg = document.getElementById("line-svg");
+  if (svg) svg.innerHTML = "";
+
+  // 更新時刻欄
+  document.getElementById("last-updated").innerHTML =
+    "情報の取得に失敗しました。【Failed to retrieve data】";
+});
     }
 
     loadTrainData();
-    setInterval(loadTrainData, 30000);
+    setInterval(loadTrainData, 20000);
   </script>
 </body>
 </html>
