@@ -629,149 +629,140 @@ function drawTrainMarker(svg, x, y, color, label, trainId, delaySide){
 
 
 
+function renderMap(trains){
+  const svg = document.getElementById("line-svg");
+  if(!svg) return;
 
+  lastRenderedTrains = trains;
+  svg.innerHTML = "";
 
+  const severeDelay = trains.some(t => getDelayMin(t) >= DELAY_TRIGGER_MIN);
+  visibleStations = stationOrderKey.filter(key => {
+    // ★通常時は京成区間非表示
+    if(!severeDelay && keiseiSectionKeys.has(key)) return false;
+    return true;
+  });
 
-    function renderMap(trains){
-      const svg = document.getElementById("line-svg");
-      if(!svg) return;
+  const hasAirportKaisoku = trains.some(
+    t => t["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress"
+  );
 
-      lastRenderedTrains = trains;
-      svg.innerHTML = "";
+  const xStopLine = 130;
+  const xSkipLine = 270;
+  const xStation  = 200;
 
-      // ★遅れトリガー 5分（京成区間表示）
-      const severeDelay = trains.some(t => getDelayMin(t) >= DELAY_TRIGGER_MIN);
+  const xStopTrain = xStopLine - 45;
+  const xSkipTrain = xSkipLine + 45;
 
-      visibleStations = stationOrderKey.filter(key => {
-        if(!severeDelay && keiseiSectionKeys.has(key)) return false;
-        return true;
-      });
+  const startY = yOfStation(visibleStations[0]);
+  const endY = yOfStation(visibleStations[visibleStations.length - 1]);
 
-      // ★エアポート快特が存在するか
-      const hasAirportKaisoku = trains.some(
-        t => t["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress"
-      );
+  const yNext = (visibleStations.length >= 2) ? yOfStation(visibleStations[1]) : null;
+  const stationGap = (yNext != null) ? Math.abs(yNext - startY) : 40;
+  const extLen = stationGap * 0.9;
+  const extTopY = startY - extLen;
 
-      const xStopLine = 130;
-      const xSkipLine = 270;
-      const xStation  = 200;
+  // 縦線：左黒線
+  svg.insertAdjacentHTML("beforeend",
+    `<line x1="${xStopLine}" y1="${extTopY}" x2="${xStopLine}" y2="${endY}"
+           stroke="#000" stroke-width="6" stroke-linecap="round"></line>`
+  );
 
-      const xStopTrain = xStopLine - 45;
-      const xSkipTrain = xSkipLine + 45;
+  // 右オレンジ線
+  const ySengakuji = yOfStation("Sengakuji");
+  if(hasAirportKaisoku){
+    svg.insertAdjacentHTML("beforeend",
+      `<line x1="${xSkipLine}" y1="${extTopY}" x2="${xSkipLine}" y2="${ySengakuji}"
+             stroke="#ff8c00" stroke-width="6" stroke-linecap="round"></line>`
+    );
+  }
 
-      const startY = yOfStation(visibleStations[0]);
-      const endY = yOfStation(visibleStations[visibleStations.length - 1]);
+  // 駅表示ループ
+  visibleStations.forEach(key => {
+    const y = yOfStation(key);
+    const nameJa = stationMap[key] || key;
+    const nameEnRaw = stationMapEn[key] || "";
+    const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
 
-      // ===== 上方向に「続き」を見せる延長（実線）=====
-      const yNext = (visibleStations.length >= 2) ? yOfStation(visibleStations[1]) : null;
-      const stationGap = (yNext != null) ? Math.abs(yNext - startY) : 40;
-      const extLen = stationGap * 0.9;
-      const extTopY = startY - extLen;
-
-      // ===== 縦線：左（黒1本）/ 右（橙枠＋白）=====
-      // 左レーン：黒1本（右レーン白=6に合わせる）
+    // ★右レーン（オレンジ）○表示
+    if(
+      hasAirportKaisoku &&
+      !bypassStationKeys.has(key) &&
+      y <= ySengakuji
+    ){
       svg.insertAdjacentHTML("beforeend",
-        `<line x1="${xStopLine}" y1="${extTopY}" x2="${xStopLine}" y2="${endY}"
-               stroke="#000" stroke-width="6" stroke-linecap="round"></line>`
+        `<circle cx="${xSkipLine}" cy="${y}" r="6"
+                 fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
       );
-
-      // 右レーン：橙1本線（シンプル版）
-      const ySengakuji = yOfStation("Sengakuji");
-
-if (hasAirportKaisoku) {
-  svg.insertAdjacentHTML("beforeend",
-   `<line id="airport-line"
-          x1="${xSkipLine}" y1="${extTopY}"
-          x2="${xSkipLine}" y2="${ySengakuji}"
-          stroke="#ff8c00"
-          stroke-width="6"
-          stroke-linecap="round"></line>`
-  );
-}
-
-      // 駅表示
-      visibleStations.forEach(key => {
-        const y = yOfStation(key);
-const nameJa = stationMap[key] || key;
-
-const nameEnRaw = stationMapEn[key] || "";
-const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
-
-
-        // ★遅れ表示中だけ：指定駅の停車○（左右）を消す
-        const hideCircle = severeDelay && keiseiPassCircleKeys.has(key);
-
-        // 左レーン：停車○（1個）
-        if(!hideCircle){
-          svg.insertAdjacentHTML("beforeend",
-            `<circle cx="${xStopLine}" cy="${y}" r="6"
-                     fill="#fff" stroke="#000" stroke-width="2"></circle>`
-          );
-        }
-hideCircle
-        // 右レーン○（浅草線内の通過駅は元々非表示）
-        // 右レーン○（泉岳寺より下は描かない）
-if(
-  hasAirportKaisoku &&           // ★追加
-  !bypassStationKeys.has(key) &&
-  !hideCircle &&
-  y <= yOfStation("Sengakuji")
-){
-  svg.insertAdjacentHTML("beforeend",
-    `<circle cx="${xSkipLine}" cy="${y}" r="6"
-             fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
-  );
-}
-
-        // 駅名
-        svg.insertAdjacentHTML("beforeend",
-          `<text x="${xStation}" y="${y - 2}"
-                 font-size="14"
-                 font-weight="bold"
-                 text-anchor="middle"
-                 fill="#222">${nameJa}</text>
-           <text x="${xStation}" y="${y + 14}"
-                 font-size="11"
-                 text-anchor="middle"
-                 fill="#777">${nameEn}</text>`
-        );
-      });
-
-      // 列車マーカー
-      trains.forEach(train => {
-        const y = calcTrainY(train);
-        if(y == null) return;
-
-        const id = train["odpt:trainNumber"] || train["@id"] || ("t_" + Math.random());
-        latestTrainsById.set(id, train);
-
-        const label = formatTrainNumber(train["odpt:trainNumber"] || "");
-        const tp = getTrainTypeParts(train);
-
-        if(isSkipTrain(train)){
-          drawTrainMarker(svg, xSkipTrain, y, tp.bg, label, id, "right");
-        }else{
-          drawTrainMarker(svg, xStopTrain, y, tp.bg, label, id, "left");
-        }
-      });
-
-      // タップ → モーダル
-      svg.onclick = (ev) => {
-        const g = ev.target.closest(".train-marker");
-        if(!g) return;
-
-        const id = g.getAttribute("data-train-id");
-        const train = latestTrainsById.get(id);
-        if(!train) return;
-
-        selectedTrainId = id;
-        showDetail(train);
-
-        renderMap(Array.from(latestTrainsById.values()));
-      };
-
-      
     }
+
+    // ★左レーン ○描画
+    if(keiseiSectionKeys.has(key)){
+      // 京成区間は visibleStations に含まれるときだけ
+      if(visibleStations.includes(key)){
+        svg.insertAdjacentHTML("beforeend",
+          `<circle cx="${xStopLine}" cy="${y}" r="6"
+                   fill="#fff" stroke="#000" stroke-width="2"></circle>`
+        );
+      }
+    } else {
+      // 京成区間以外（押上より下）は従来通り
+      svg.insertAdjacentHTML("beforeend",
+        `<circle cx="${xStopLine}" cy="${y}" r="6"
+                 fill="#fff" stroke="#000" stroke-width="2"></circle>`
+      );
+    }
+
+    // 駅名
+    svg.insertAdjacentHTML("beforeend",
+      `<text x="${xStation}" y="${y - 2}"
+             font-size="14"
+             font-weight="bold"
+             text-anchor="middle"
+             fill="#222">${nameJa}</text>
+       <text x="${xStation}" y="${y + 14}"
+             font-size="11"
+             text-anchor="middle"
+             fill="#777">${nameEn}</text>`
+    );
+  });
+
+  // 列車マーカー描画
+  trains.forEach(train => {
+    const y = calcTrainY(train);
+    if(y == null) return;
+
+    const id = train["odpt:trainNumber"] || train["@id"] || ("t_" + Math.random());
+    latestTrainsById.set(id, train);
+
+    const label = formatTrainNumber(train["odpt:trainNumber"] || "");
+    const tp = getTrainTypeParts(train);
+
+    if(isSkipTrain(train)){
+      drawTrainMarker(svg, xSkipTrain, y, tp.bg, label, id, "right");
+    } else {
+      drawTrainMarker(svg, xStopTrain, y, tp.bg, label, id, "left");
+    }
+  });
+
+  // タップ → モーダル
+  svg.onclick = (ev) => {
+    const g = ev.target.closest(".train-marker");
+    if(!g) return;
+
+    const id = g.getAttribute("data-train-id");
+    const train = latestTrainsById.get(id);
+    if(!train) return;
+
+    selectedTrainId = id;
+    showDetail(train);
+
+    renderMap(Array.from(latestTrainsById.values()));
+  };
+}
+
+
+    
 
     function loadTrainData(){
       fetch(trainUrl)
