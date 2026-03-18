@@ -684,17 +684,18 @@ function renderMap(trains){
     const nameEnRaw = stationMapEn[key] || "";
     const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
 
-    // ★右レーン（オレンジ）○表示
     if(
-      hasAirportKaisoku &&
-      !bypassStationKeys.has(key) &&
-      y <= ySengakuji
-    ){
-      svg.insertAdjacentHTML("beforeend",
-        `<circle cx="${xSkipLine}" cy="${y}" r="6"
-                 fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
-      );
-    }
+  hasAirportKaisoku &&
+  !bypassStationKeys.has(key) &&
+  !hideCircle &&
+  y <= yOfStation("Sengakuji") &&
+  !(key === "KeiseiHikifune" || key === "Yahiro" || key === "Yotsugi" || key === "KeiseiTateishi")
+){
+  svg.insertAdjacentHTML("beforeend",
+    `<circle cx="${xSkipLine}" cy="${y}" r="6"
+             fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
+  );
+}
 
     // ★左レーン ○描画
     if(keiseiSectionKeys.has(key)){
