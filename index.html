@@ -455,7 +455,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeJa}</div>` : ``}
         </div>
 
-        <div class="hint">※20秒ごとに自動更新</div>
+        <div class="hint">※60秒ごとに自動更新</div>
 
         <hr class="sep">
 
@@ -474,7 +474,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeEn}</div>` : ``}
         </div>
 
-        <div class="hint">※Updates every 20 seconds</div>
+        <div class="hint">※Updates every 60 seconds</div>
       `);
     }
 
@@ -518,7 +518,7 @@
         <div>遅れが発生しています。</div>
         <div>成田空港行きの電車は、押上駅から６駅先の京成高砂駅でお待ちください。</div>
         <div style="margin-top:6px;"><b>【Service Information】</b></div>
-        <div>Service delays are occurring. Please wait for Narita Airport–bound trains at Keisei-Takasago (KS-10), six stations from Oshiage.</div>
+        <div>Service delays are occurring. Please wait for Narita Airport–bound trains at Keisei-Takasago (KS-10), six stations from Oshiage (A-20).</div>
       `;
     }
 
@@ -695,7 +695,7 @@ const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
                      fill="#fff" stroke="#000" stroke-width="2"></circle>`
           );
         }
-
+hideCircle
         // 右レーン○（浅草線内の通過駅は元々非表示）
         // 右レーン○（泉岳寺より下は描かない）
 if(
@@ -764,8 +764,13 @@ if(
       fetch(trainUrl)
         .then(res => res.json())
         .then(trainData => {
-          // 成田空港行きのみ抽出
-          const naritaAirportTrains = trainData.filter(train =>
+          // ★北行きだけ抽出（ここを追加）
+  const northboundTrains = trainData.filter(train =>
+    train["odpt:railDirection"] === "odpt.RailDirection:Northbound"
+  );
+
+  // 成田空港行きのみ抽出
+  const naritaAirportTrains = trainData.filter(train =>
             train["odpt:destinationStation"] &&
             train["odpt:destinationStation"].some(dest => dest.includes("NaritaAirport"))
           );
@@ -783,7 +788,7 @@ if(
             }
           }
 
-          updateAlertBanner(naritaAirportTrains);
+          updateAlertBanner(northboundTrains);
 
           const prevSelected = selectedTrainId;
 
@@ -804,7 +809,7 @@ if(
           const mm = now.getMinutes().toString().padStart(2,"0");
           const ss = now.getSeconds().toString().padStart(2,"0");
           document.getElementById("last-updated").innerHTML =
-            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>20秒ごとに自動更新されます。【Automatically updates every 20 seconds.】`;
+            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>60秒ごとに自動更新されます。【Automatically updates every 60 seconds.】`;
         })
         .catch(() => {
   // 上部メッセージ
@@ -827,7 +832,7 @@ if(
     }
 
     loadTrainData();
-    setInterval(loadTrainData, 20000);
+    setInterval(loadTrainData, 60000);
   </script>
 </body>
 </html>
