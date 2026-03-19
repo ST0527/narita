@@ -181,7 +181,7 @@
     const TEST_DELAY_MIN = Number(params.get("testdelay") || 0);
 
     // ★遅延トリガー（京成区間表示 / バナー / モーダル注意文）
-    const DELAY_TRIGGER_MIN = 1;
+    const DELAY_TRIGGER_MIN = 5;
 
     // 日本語駅名
     const stationMap = {
@@ -771,16 +771,12 @@ if(
       fetch(trainUrl)
         .then(res => res.json())
         .then(trainData => {
-          // ★北行きだけ抽出（ここを追加）
-  const northboundTrains = trainData.filter(train =>
-    train["odpt:railDirection"] === "odpt.RailDirection:Northbound"
-  );
 
   // 成田空港行きのみ抽出
   const naritaAirportTrains = trainData.filter(train =>
-            train["odpt:destinationStation"] &&
-            train["odpt:destinationStation"].some(dest => dest.includes("NaritaAirport"))
-          );
+    train["odpt:destinationStation"] &&
+    train["odpt:destinationStation"].some(dest => dest.includes("NaritaAirport"))
+  );
 
           const info = document.getElementById("info-message");
           if(info){
@@ -795,7 +791,7 @@ if(
             }
           }
 
-          updateAlertBanner(northboundTrains);
+          updateAlertBanner(naritaAirportTrains);
 
           const prevSelected = selectedTrainId;
 
