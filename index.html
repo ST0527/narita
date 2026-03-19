@@ -685,11 +685,14 @@ function renderMap(trains){
     const nameEn = nameEnRaw;
 
     // ★右レーン（オレンジ）○表示
-    if(
-      hasAirportKaisoku &&
-      !bypassStationKeys.has(key) &&
-      y <= ySengakuji
-    ){
+    
+if(
+  hasAirportKaisoku &&
+  !bypassStationKeys.has(key) &&
+  !keiseiPassCircleKeys.has(key) &&  // ←これ追加
+  y <= ySengakuji
+){
+
       svg.insertAdjacentHTML("beforeend",
         `<circle cx="${xSkipLine}" cy="${y}" r="6"
                  fill="#fff" stroke="#ff8c00" stroke-width="1"></circle>`
