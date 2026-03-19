@@ -326,7 +326,7 @@
         "odpt.TrainType:Toei.RapidLimitedExpress": { ja:"快速特急", en:"Limited Express", bg:"#28a745", fg:"#ffffff" },
         "odpt.TrainType:Toei.CommuterLimitedExpress": { ja:"通勤特急", en:"Commuter Limited Express", bg:"#17a2b8", fg:"#ffffff" },
         "odpt.TrainType:Toei.AccessExpress": { ja:"アクセス特急", en:"Access Express", bg:"#fd7e14", fg:"#ffffff" },
-        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈エアポート快特", en:"✈ Airport Limited Express", bg:"#fd7e14", fg:"#ffffff" }
+        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈快特", en:"✈Limited Express", bg:"#fd7e14", fg:"#ffffff" }
       };
       return map[trainType] || { ja:"取得できませんでした", en:"Unavailable", bg:"#6c757d", fg:"#ffffff" };
     }
@@ -468,7 +468,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeJa}</div>` : ``}
         </div>
 
-        <div class="hint">※60秒ごとに自動更新</div>
+        <div class="hint">※60秒ごとに自動更新されます。</div>
 
         <hr class="sep">
 
