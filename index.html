@@ -185,45 +185,45 @@
 
     // 日本語駅名
     const stationMap = {
-      "KeiseiTakasago": "京成高砂(KS-10)",
-      "Aoto": "青砥(KS-09)",
-      "KeiseiTateishi": "京成立石(KS-49)",
-      "Yotsugi": "四ツ木(KS-48)",
-      "Yahiro": "八広(KS-47)",
-      "KeiseiHikifune": "京成曳舟(KS-46)",
+      "KeiseiTakasago": "京成高砂",
+      "Aoto": "青砥",
+      "KeiseiTateishi": "京成立石",
+      "Yotsugi": "四ツ木",
+      "Yahiro": "八広",
+      "KeiseiHikifune": "京成曳舟",
 
-      "Oshiage": "押上(A-20)",
-      "HonjoAzumabashi": "本所吾妻橋(A-19)",
-      "Asakusa": "浅草(A-18)",
-      "Kuramae": "蔵前(A-17)",
-      "Asakusabashi": "浅草橋(A-16)",
-      "HigashiNihombashi": "東日本橋(A-15)",
-      "Ningyocho": "人形町(A-14)",
-      "Nihombashi": "日本橋(A-13)",
-      "Takaracho": "宝町(A-12)",
-      "HigashiGinza": "東銀座(A-11)",
-      "Shimbashi": "新橋(A-10)",
-      "Daimon": "大門(A-09)",
-      "Mita": "三田(A-08)",
-      "Sengakuji": "泉岳寺(A-07)",
-      "Takanawadai": "高輪台(A-06)",
-      "Gotanda": "五反田(A-05)",
-      "Togoshi": "戸越(A-04)",
-      "Nakanobu": "中延(A-03)",
-      "Magome": "馬込(A-02)",
-      "NishiMagome": "西馬込(A-01)",
+      "Oshiage": "押上",
+      "HonjoAzumabashi": "本所吾妻橋",
+      "Asakusa": "浅草",
+      "Kuramae": "蔵前",
+      "Asakusabashi": "浅草橋",
+      "HigashiNihombashi": "東日本橋",
+      "Ningyocho": "人形町",
+      "Nihombashi": "日本橋",
+      "Takaracho": "宝町",
+      "HigashiGinza": "東銀座",
+      "Shimbashi": "新橋",
+      "Daimon": "大門",
+      "Mita": "三田",
+      "Sengakuji": "泉岳寺",
+      "Takanawadai": "高輪台",
+      "Gotanda": "五反田",
+      "Togoshi": "戸越",
+      "Nakanobu": "中延",
+      "Magome": "馬込",
+      "NishiMagome": "西馬込",
 
       "NaritaAirportTerminal1": "成田空港"
     };
 
     // 英語駅名
     const stationMapEn = {
-      "KeiseiTakasago": "Keisei-Takasago",
-      "Aoto": "Aoto",
-      "KeiseiTateishi": "Keisei-Tateishi",
-      "Yotsugi": "Yotsugi",
-      "Yahiro": "Yahiro",
-      "KeiseiHikifune": "Keisei-Hikifune",
+      "KeiseiTakasago": "Keisei-Takasago (KS-10)",
+      "Aoto": "Aoto (KS-09)",
+      "KeiseiTateishi": "Keisei-Tateishi (KS-49)",
+      "Yotsugi": "Yotsugi (KS-48)",
+      "Yahiro": "Yahiro (KS-47)",
+      "KeiseiHikifune": "Keisei-Hikifune (KS-46)",
 
       "Oshiage": "Oshiage (A-20)",
       "HonjoAzumabashi": "Honjo-Azumabashi (A-19)",
@@ -445,7 +445,7 @@
       const isAirportKaitoku =
         train["odpt:trainType"] === "odpt.TrainType:Toei.AirportRapidLimitedExpress";
 
-      const stopNoteJa = !isAirportKaitoku ? " 押上(A-20)まで各駅に停まります。" : "";
+      const stopNoteJa = !isAirportKaitoku ? " 押上まで各駅に停まります。" : "";
       const stopNoteEn = !isAirportKaitoku ? " Stops at all stations until Oshiage (A-20)." : "";
 
       // ★5分以上の注意文（モーダルにのみ）
@@ -682,7 +682,7 @@ function renderMap(trains){
     const y = yOfStation(key);
     const nameJa = stationMap[key] || key;
     const nameEnRaw = stationMapEn[key] || "";
-    const nameEn = nameEnRaw.replace(/\s*\([A-Z]{1,2}-\d+\)/, "");
+    const nameEn = nameEnRaw;
 
     // ★右レーン（オレンジ）○表示
     if(
