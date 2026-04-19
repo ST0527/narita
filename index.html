@@ -327,7 +327,7 @@
         "odpt.TrainType:Toei.RapidLimitedExpress": { ja:"快速特急", en:"Limited Express", bg:"#28a745", fg:"#ffffff" },
         "odpt.TrainType:Toei.CommuterLimitedExpress": { ja:"通勤特急", en:"Commuter Limited Express", bg:"#17a2b8", fg:"#ffffff" },
         "odpt.TrainType:Toei.AccessExpress": { ja:"アクセス特急", en:"Access Express", bg:"#fd7e14", fg:"#ffffff" },
-        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈快特", en:"✈Limited Express", bg:"#fd7e14", fg:"#ffffff" }
+        "odpt.TrainType:Toei.AirportRapidLimitedExpress": { ja:"✈エアポート快特", en:"✈Airport Limited Express", bg:"#fd7e14", fg:"#ffffff" }
       };
       return map[trainType] || { ja:"取得できませんでした", en:"Unavailable", bg:"#6c757d", fg:"#ffffff" };
     }
@@ -450,7 +450,7 @@
       const stopNoteEn = !isAirportKaitoku ? " Stops at all stations until Oshiage (A-20)." : "";
 
       // ★5分以上の注意文（モーダルにのみ）
-      const noticeJa = "この先の状況により途中の駅で運転を打ち切る場合があります。";
+      const noticeJa = "途中の駅で運転を打ち切る場合があります。";
       const noticeEn = "Depending on the situation, trains may terminate at a station before the final destination.";
 
       openModal(`
@@ -469,7 +469,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeJa}</div>` : ``}
         </div>
 
-        <div class="hint">※60秒ごとに自動更新されます。</div>
+        <div class="hint">※30秒ごとに自動更新されます。</div>
 
         <hr class="sep">
 
@@ -488,7 +488,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeEn}</div>` : ``}
         </div>
 
-        <div class="hint">※Updates every 60 seconds</div>
+        <div class="hint">※Updates every 30 seconds</div>
       `);
     }
 
@@ -530,7 +530,7 @@
       banner.innerHTML = `
         <div class="title">【運行情報】</div>
         <div>遅れが発生しています。</div>
-        <div>成田空港行きの電車は、押上駅から６駅先の京成高砂駅でお待ちください。</div>
+        <div>成田空港行きの列車は、押上駅から６駅先の京成高砂駅でお待ちください。</div>
         <div style="margin-top:6px;"><b>【Service Information】</b></div>
         <div>Service delays are occurring. Please wait for Narita Airport–bound trains at Keisei-Takasago (KS-10), six stations from Oshiage (A-20).</div>
       `;
@@ -640,7 +640,7 @@ function renderMap(trains){
   const severeDelay = trains.some(t => getDelayMin(t) >= DELAY_TRIGGER_MIN);
   visibleStations = stationOrderKey.filter(key => {
     // ★通常時は京成区間非表示
-    if(!severeDelay && keiseiSectionKeys.has(key)) return false;
+    if(keiseiSectionKeys.has(key)) return false;
     return true;
   });
 
@@ -783,12 +783,12 @@ if(
           if(info){
             if (naritaAirportTrains.length === 0) {
               info.innerHTML =
-                "現在、成田空港行きの列車はありません。<br>" +
-                "【There are currently no trains bound for Narita Airport.】";
+                "現在、成田空港行きの列車はありません。成田空港行きの列車は、押上から６駅先の京成高砂駅でお待ちください。<br>" +
+                "【There are currently no trains that go directly to Narita Airport.<br>Please wait for Narita Airport–bound trains at Keisei-Takasago (KS-10), six stations from Oshiage (A-20).】";
             } else {
               info.innerHTML =
                 "表示中の列車はすべて成田空港行きです。<br>" +
-                "【All trains shown are bound for Narita Airport.】";
+                "【All trains currently displayed are bound for Narita Airport.】";
             }
           }
 
@@ -813,7 +813,7 @@ if(
           const mm = now.getMinutes().toString().padStart(2,"0");
           const ss = now.getSeconds().toString().padStart(2,"0");
           document.getElementById("last-updated").innerHTML =
-            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>60秒ごとに自動更新されます。【Automatically updates every 60 seconds.】`;
+            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>30秒ごとに自動更新されます。【Automatically updates every 30 seconds.】`;
         })
         .catch(() => {
   // 上部メッセージ
@@ -836,7 +836,7 @@ if(
     }
 
     loadTrainData();
-    setInterval(loadTrainData, 60000);
+    setInterval(loadTrainData, 30000);
   </script>
 </body>
 </html>
