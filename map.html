@@ -160,7 +160,7 @@
      ">
 
     簡易表示に切替<br>
-  Switch to Simple View
+  Tap to switch to Simple View
 
 
   </a>
@@ -486,7 +486,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeJa}</div>` : ``}
         </div>
 
-        <div class="hint">※30秒ごとに自動更新されます。</div>
+        <div class="hint">※60秒ごとに自動更新されます。</div>
 
         <hr class="sep">
 
@@ -505,7 +505,7 @@
           ${isSevereDelay ? `<div class="row" style="color:#dc3545;font-weight:bold;">${noticeEn}</div>` : ``}
         </div>
 
-        <div class="hint">※Updates every 30 seconds</div>
+        <div class="hint">※Updates every 60 seconds</div>
       `);
     }
 
@@ -830,7 +830,7 @@ if(
           const mm = now.getMinutes().toString().padStart(2,"0");
           const ss = now.getSeconds().toString().padStart(2,"0");
           document.getElementById("last-updated").innerHTML =
-            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>30秒ごとに自動更新されます。【Automatically updates every 30 seconds.】`;
+            `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>60秒ごとに自動更新されます。【Automatically updates every 60 seconds.】`;
         })
         .catch(() => {
   // 上部メッセージ
@@ -853,7 +853,7 @@ if(
     }
 
     loadTrainData();
-    setInterval(loadTrainData, 30000);
+    setInterval(loadTrainData, 60000);
   </script>
 </body>
 </html>
