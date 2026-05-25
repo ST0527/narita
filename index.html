@@ -18,9 +18,11 @@ body{
   max-width:700px;
   margin:auto;
   background:#fff;
-  border-radius:16px;
+  border-radius:0 0 16px 16px;
   padding:30px 20px;
   box-shadow:0 2px 8px rgba(0,0,0,0.08);
+
+ box-sizing:border-box;
 }
 
 #status{
@@ -61,7 +63,7 @@ body{
      style="
        display:inline-block;
        padding:10px 18px;
-       background:#333;
+       background:#222;
        color:#fff;
        border-radius:10px;
        text-decoration:none;
@@ -69,7 +71,7 @@ body{
      ">
 
     路線図表示に切替<br>
-  Switch to Route Map View
+  Tap to switch to Route Map View
 
   </a>
 
@@ -77,25 +79,30 @@ body{
 
 <div style="
   max-width:700px;
-  margin:0 auto 12px;
+  margin:0 auto 0;
 
-  text-align:center;
-  font-size:1.2em;
-  font-weight:bold;
-
-  background:#666;
+  background:#0055aa;
   color:#fff;
 
-  padding:10px 14px;
-  border-radius:10px;
+  text-align:center;
+
+  padding:10px 20px;
+
+  border-radius:16px 16px 0 0;
 
   line-height:1.5;
+
   box-sizing:border-box;
 ">
+
   押上駅 3・4番線<br>
-<span style="font-size:0.9em;">
-  Oshiage Station Tracks 3 & 4
-</span>
+
+  <span style="
+    font-size:1em;
+  ">
+    Oshiage Station Tracks 3 & 4
+  </span>
+
 </div>
 
 <div class="card">
@@ -106,7 +113,7 @@ body{
 
 </div>
 
-  <div id="updated"></div>
+<div id="updated"></div>
 
 <script>
 
@@ -460,7 +467,7 @@ function updateTime(){
     String(now.getSeconds()).padStart(2,"0");
 
   document.getElementById("updated").innerHTML =
-    `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>30秒ごとに自動更新されます。【Automatically updates every 30 seconds.】`;
+    `更新時刻【Update Time】: ${hh}:${mm}:${ss}<BR>60秒ごとに自動更新されます。【Automatically updates every 60 seconds.】`;
 }
 
 function loadTrainData(){
@@ -491,7 +498,7 @@ function loadTrainData(){
 
 loadTrainData();
 
-setInterval(loadTrainData, 30000);
+setInterval(loadTrainData, 60000);
 
 </script>
 
